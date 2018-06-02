@@ -21,21 +21,10 @@
 #define BUFLEN 512  //Max length of buffer
 #define PORT 8888   //The port on which to listen for incoming data
 
-//char players[4][25];
 char data_received[25];
 
 int lives = 3;
 char response[BUFLEN] = "";
-char ip_single_player[11] = "";
-
-struct arg_struct {
-	int s;
-	const void* response;
-	size_t recv_len;
-	int flags;
-	const struct sockaddr* si_other;
-	socklen_t slen;
-};
 
 struct player {
 	struct in_addr ip;
@@ -47,14 +36,6 @@ void die(char *s) {
 	perror(s);
 	exit(1);
 }
-
-/*void setPlayerLives(struct arg_struct* args) {
-	printf("New player lives %i \n", lives);
-	if (sendto(args->s, args->response, args->recv_len, 0, (struct sockaddr*) &args->si_other, args->slen)
-			== -1) {
-		die("sendto()");
-	}
-}*/
 
 void setPlayerLives(int lives) {
 	printf("New player lives %i \n", lives);
@@ -68,20 +49,6 @@ void createNewPlayer(int lives) {
 	//printf("Thread id %i \n", thread_id);
 	//exit(0);
 }
-
-/*void createPlayerThread(int s, const void *response, size_t recv_len,
-		int flags, const struct sockaddr *si_other, socklen_t slen){
-	struct arg_struct args;
-	args.s = s;
-	args.response = response;
-	args.recv_len = recv_len;
-	args.flags = flags;
-	args.si_other = si_other;
-	args.slen = slen;
-	pthread_t thread_id;
-	pthread_create(&thread_id, NULL, setPlayerLives, (void *)&args);
-	pthread_join(thread_id, NULL);
-}*/
 
 int addPlayer(int player_pos, struct in_addr ip_address){
 	int is_player_added = 0;
@@ -138,17 +105,13 @@ void gameOver(int s, size_t len, int flags, socklen_t slen){
 
 	struct sockaddr_in si_player;
 
-	//int s = sizeof(si_player);
 	int player_pos = 0;
 	//While there is an ip and size is less than 4
 	while (!strstr("0.0.0.0", inet_ntoa(players[player_pos].ip)) && player_pos < 4) {
-		//printf("Player ip to %s \n", inet_ntoa(players[player_pos].ip));
 		// zero out the structure
-		//memset((char *) &si_player, 0, sizeof(si_player));
 
 		si_player.sin_family = AF_INET;
 		si_player.sin_port = htons(PORT);
-		//si_player.sin_addr = players[player_pos].ip;
 		si_player.sin_addr = players[player_pos].ip;
 
 		printf("Sending message to %s \n", inet_ntoa(si_player.sin_addr));
@@ -202,31 +165,16 @@ int main(void) {
 
 		printf("Play string %d\n", strstr(buf, "play") != NULL);
 		//If play command and player is not already playing
-		if (strstr(buf, "play") != NULL
-				&& strstr(ip_single_player, inet_ntoa(si_other.sin_addr)) == NULL) {
+		if (strstr(buf, "play") != NULL) {
 			if (player_pos == 4)
 				printf("No more players allowed\n");
-			/*else{
-				printf("Start playing \n");
-				//TODO: Remove after implementing multiplayer
-				strcpy(ip_single_player, inet_ntoa(si_other.sin_addr));
-			}*/
-
-			//PRUEBA
-			checkPlayerSlots();
 
 			player_pos = addPlayer(player_pos, si_other.sin_addr);
 
 			strcpy(response, "play");
 			//createNewPlayer(3);
-			//createPlayerThread(s, response, recv_len, 0, (struct sockaddr*) &si_other, slen);
 		} else if (strstr(buf, "hit") != NULL){
-			/*printf("Player %s got hit\n", inet_ntoa(si_other.sin_addr));
-			lives--;
-			printf("%d lives left \n", lives);*/
 			lives = hitPlayer(inet_ntoa(si_other.sin_addr));
-			/*if (lives == 0)
-				strcpy(response, "die");*/
 		} else {
 			strcpy(response, buf);
 		}
@@ -234,13 +182,6 @@ int main(void) {
 		if (lives == 0){
 			strcpy(response, "die");
 			gameOver(s, recv_len, 0, slen);
-			/*for (int i = 0; i < 4; i++){
-				printf("Sending message %s to %s", response, inet_ntoa(si_other->sin_addr));
-				if (sendto(s, response, recv_len, 0, (struct sockaddr*) &si_other, slen)
-						== -1) {
-					die("sendto()");
-				}
-			}*/
 			die("Game Over");
 		} else {
 			printf("Response message %s \n", response);
