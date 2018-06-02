@@ -38,7 +38,7 @@ struct arg_struct {
 };
 
 struct player {
-	char ip[15];
+	struct in_addr ip;
 	int lives;
 };
 struct player players[4];
@@ -83,33 +83,81 @@ void createNewPlayer(int lives) {
 	pthread_join(thread_id, NULL);
 }*/
 
-int addPlayer(int player_pos, char ip_adress[]){
+int addPlayer(int player_pos, struct in_addr ip_address){
 	int is_player_added = 0;
-
+	printf("Player ip: %s\n", inet_ntoa(ip_address));
 	//Add player to array if it doesnt exist
-	while (!strcmp("", players[player_pos].ip) && !is_player_added
-			&& player_pos < 4) {
-		strcpy(players[player_pos].ip, ip_adress);
+	/*while (NULL == players[player_pos].ip
+			&& !is_player_added && player_pos < 4) {*/
+		//strcpy(players[player_pos].ip, ip_adress);
+	//if (!playerExists(inet_ntoa(ip_address))){
+		players[player_pos].ip =  ip_address;
 		players[player_pos].lives = 3;
-		printf("Player added: %s\n", players[player_pos].ip);
+		printf("Player added: %s\n", inet_ntoa(players[player_pos].ip));
 		is_player_added = 1;
 		player_pos++;
 		//Create new player thread
 		createNewPlayer(3);
-	}
+	/*} else {
+		printf("Already playing");
+	}*/
+
+	checkPlayerSlots();
 	return player_pos;
 }
 
 int hitPlayer(char ip[]){
 	printf("Player %s got hit\n", ip);
 	for (int i = 0; i < 4; i++){
-		if (strstr(players[i].ip, ip)){
+		if (strstr(inet_ntoa(players[i].ip), ip)){
 			players[i].lives--;
 			printf("Remaining lives %d\n", players[i].lives);
 			return players[i].lives;
 		}
 	}
 	return 0;
+}
+
+void checkPlayerSlots(){
+	for (int i = 0; i < 4; i++){
+		printf("Player %d %s has %d lives\n", i, inet_ntoa(players[i].ip), players[i].lives);
+	}
+}
+
+/*int playerExists(char ip[]){
+	for (int i = 0; i < 4; i++){
+		if (!strstr(ip, inet_ntoa(players[i].ip))){
+			printf("Player %d %s has %d lives/n", i, inet_ntoa(players[i].ip), players[i].lives);
+			return 1;
+		}
+	}
+	return 0;
+}*/
+
+void gameOver(int s, size_t len, int flags, socklen_t slen){
+
+	struct sockaddr_in si_player;
+
+	//int s = sizeof(si_player);
+	int player_pos = 0;
+	//While there is an ip and size is less than 4
+	while (!strstr("0.0.0.0", inet_ntoa(players[player_pos].ip)) && player_pos < 4) {
+		//printf("Player ip to %s \n", inet_ntoa(players[player_pos].ip));
+		// zero out the structure
+		//memset((char *) &si_player, 0, sizeof(si_player));
+
+		si_player.sin_family = AF_INET;
+		si_player.sin_port = htons(PORT);
+		//si_player.sin_addr = players[player_pos].ip;
+		si_player.sin_addr = players[player_pos].ip;
+
+		printf("Sending message to %s \n", inet_ntoa(si_player.sin_addr));
+		if (sendto(s, "end", len, 0, (struct sockaddr*) &si_player, slen)
+				== -1) {
+			die("sendto()");
+		}
+		player_pos++;
+	}
 }
 
 int main(void) {
@@ -138,7 +186,7 @@ int main(void) {
 
 	//keep listening for data
 	while (1) {
-		printf("Waiting for players...");
+		printf("Waiting for players...\n");
 		fflush(stdout);
 
 		//try to receive some data, this is a blocking call
@@ -158,13 +206,16 @@ int main(void) {
 				&& strstr(ip_single_player, inet_ntoa(si_other.sin_addr)) == NULL) {
 			if (player_pos == 4)
 				printf("No more players allowed\n");
-			else{
+			/*else{
 				printf("Start playing \n");
 				//TODO: Remove after implementing multiplayer
 				strcpy(ip_single_player, inet_ntoa(si_other.sin_addr));
-			}
+			}*/
 
-			player_pos = addPlayer(player_pos, inet_ntoa(si_other.sin_addr));
+			//PRUEBA
+			checkPlayerSlots();
+
+			player_pos = addPlayer(player_pos, si_other.sin_addr);
 
 			strcpy(response, "play");
 			//createNewPlayer(3);
@@ -174,23 +225,30 @@ int main(void) {
 			lives--;
 			printf("%d lives left \n", lives);*/
 			lives = hitPlayer(inet_ntoa(si_other.sin_addr));
-			if (lives == 0)
-				strcpy(response, "die");
-		} else if (strstr(ip_single_player, inet_ntoa(si_other.sin_addr)) != NULL
-				&& strstr(buf, "play") != NULL){
-			strcpy(response, "play");
+			/*if (lives == 0)
+				strcpy(response, "die");*/
 		} else {
 			strcpy(response, buf);
 		}
 
-		if (lives == 0)
+		if (lives == 0){
+			strcpy(response, "die");
+			gameOver(s, recv_len, 0, slen);
+			/*for (int i = 0; i < 4; i++){
+				printf("Sending message %s to %s", response, inet_ntoa(si_other->sin_addr));
+				if (sendto(s, response, recv_len, 0, (struct sockaddr*) &si_other, slen)
+						== -1) {
+					die("sendto()");
+				}
+			}*/
 			die("Game Over");
-
-		printf("Response message %s \n", response);
-		//now reply the client with the same data
-		if (sendto(s, response, recv_len, 0, (struct sockaddr*) &si_other, slen)
-				== -1) {
-			die("sendto()");
+		} else {
+			printf("Response message %s \n", response);
+			//now reply the client with the same data
+			if (sendto(s, response, recv_len, 0, (struct sockaddr*) &si_other, slen)
+					== -1) {
+				die("sendto()");
+			}
 		}
 	}
 
