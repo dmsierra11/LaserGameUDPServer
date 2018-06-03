@@ -1,16 +1,3 @@
-/*
- ============================================================================
- Name        : HelloWorld.c
- Author      : Daniel Sierra
- Version     :
- Copyright   : Your copyright notice
- Description : Hello World in C, Ansi-style
- ============================================================================
- */
-
-/*
- Simple udp server
- */
 #include<stdio.h> //printf
 #include<string.h> //memset
 #include<stdlib.h> //exit(0);
@@ -37,34 +24,14 @@ void die(char *s) {
 	exit(1);
 }
 
-void setPlayerLives(int lives) {
-	printf("New player lives %i \n", lives);
-}
-
-void createNewPlayer(int lives) {
-	pthread_t thread_id;
-	//printf("Before thread\n");
-	pthread_create(&thread_id, NULL, setPlayerLives, lives);
-	pthread_join(thread_id, NULL);
-	//printf("Thread id %i \n", thread_id);
-	//exit(0);
-}
-
 int addPlayer(int player_pos, struct in_addr ip_address){
 	//int is_player_added = 0;
 	printf("Player ip: %s\n", inet_ntoa(ip_address));
-	//Add player to array if it doesnt exist
-	//if (playerExists(inet_ntoa(ip_address)) == 0){
-		players[player_pos].ip =  ip_address;
-		players[player_pos].lives = 3;
-		printf("Player added: %s\n", inet_ntoa(players[player_pos].ip));
-		//is_player_added = 1;
-		player_pos++;
-		//Create new player thread
-		createNewPlayer(3);
-	/*} else {
-		printf("Already playing\n");
-	}*/
+	players[player_pos].ip =  ip_address;
+	players[player_pos].lives = 3;
+	printf("Player added: %s\n", inet_ntoa(players[player_pos].ip));
+	//is_player_added = 1;
+	player_pos++;
 
 	checkPlayerSlots();
 	return player_pos;
@@ -86,48 +53,6 @@ void checkPlayerSlots(){
 	for (int i = 0; i < 4; i++){
 		printf("Player %d %s has %d lives\n", i, inet_ntoa(players[i].ip), players[i].lives);
 	}
-}
-
-int strCompare(char ip1[], char ip2[]){
-
-	printf("Incoming ip: %s \n",ip1);
-	printf("Current ip: %s \n",ip2);
-
-	int result;
-
-	/* Create two arrays to hold our data */
-	char example1[50];
-	char example2[50];
-
-	/* Copy two strings into our data arrays */
-	strcpy(example1, ip1);
-	strcpy(example2, ip2);
-
-	/* Compare the two strings provided */
-	result = strcmp(example1, example2);
-
-	/* If the two strings are the same say so */
-	if (result == 0) {
-		printf("Strings are the same\n");
-	}
-
-	/* If the first string is less than the second say so
-	 (This is because the 'a' in the word 'at' is less than
-	 the 'i' in the word 'is' */
-	if (result < 0) printf("Second string is less than the first\n");
-
-	return result;
-}
-
-int playerExists(char ip[]){
-	for (int i = 0; i < 4; i++){
-		//printf("Player exists? %s \n"+strstr(inet_ntoa(players[i].ip), ip));
-		if (strCompare(inet_ntoa(players[i].ip), ip) == 0){
-			printf("Player %d %s has %d lives\n", i, inet_ntoa(players[i].ip), players[i].lives);
-			return 1;
-		}
-	}
-	return 0;
 }
 
 void gameOver(int s, size_t len, int flags, socklen_t slen){
@@ -207,7 +132,6 @@ int main(void) {
 			player_pos = addPlayer(player_pos, si_other.sin_addr);
 
 			strcpy(response, "play");
-			//createNewPlayer(3);
 		} else if (strstr(buf, "hit") != NULL){
 			lives = hitPlayer(inet_ntoa(si_other.sin_addr));
 			strcpy(response, "play");
@@ -218,11 +142,9 @@ int main(void) {
 		if (lives == 0){
 			strcpy(response, "die");
 			gameOver(s, recv_len, 0, slen);
-			//die("Game Over");
 		}
 
 		printf("Response message %s \n", response);
-		//now reply the client with the same data
 		if (sendto(s, response, recv_len, 0, (struct sockaddr*) &si_other, slen)
 				== -1) {
 			die("sendto()");
